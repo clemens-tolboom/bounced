@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="nl">
+  <head>
+    <meta charset="UTF-8">
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    >
+    <title>Spiegel Reflectie Simulatie</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>body {
+  background-color: #020617;
+  color: #f1f5f9;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  margin: 0;
+  overflow: hidden;
+  touch-action: none;
+}
+
+canvas {
+  background-color: #0f172a;
+  border: 4px solid #1e293b;
+  border-radius: 8px;
+  box-shadow: 0 0 40px rgba(56, 189, 248, 0.1);
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.ui-container {
+  width: 100%;
+  max-width: 600px;
+  padding: 16px;
+  background: #1e293b;
+  border-radius: 16px;
+  margin-top: 10px;
+  border: 1px solid #334155;
+  user-select: none;
+}
+
+input[type="range"] {
+  width: 100%;
+  height: 6px;
+  background: #334155;
+  border-radius: 4px;
+  appearance: none;
+  accent-color: #38bdf8;
+  cursor: pointer;
+}
+
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 40px;
+  height: 20px;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider-round {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #334155;
+  transition: 0.4s;
+  border-radius: 34px;
+}
+
+.slider-round:before {
+  position: absolute;
+  content: "";
+  height: 14px;
+  width: 14px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: 0.4s;
+  border-radius: 50%;
+}
+
+input:checked + .slider-round {
+  background-color: #38bdf8;
+}
+
+input:checked + .slider-round:before {
+  transform: translateX(20px);
+}
+/* Drawer container */
+.drawer {
+  position: fixed;
+  right: 0;
+  top: 16vh;
+  z-index: 50;
+  pointer-events: auto; /* allow handle clicks while closed */
+}
+
+/* Panel (sliding element) */
+.drawer-panel {
+  width: 340px;
+  max-width: 90vw;
+  box-sizing: border-box;
+  pointer-events: none; /* not interactive while hidden */
+  margin-right: 0;
+  border-radius: 12px 0 0 12px;
+
+  transform: translateX(100%); /* hidden by default */
+  transition: transform 280ms ease;
+}
+
+/* Open state */
+.drawer.open .drawer-panel {
+  transform: translateX(0);
+  pointer-events: auto; /* interactive when open */
+}
+
+/* Overlay */
+.drawer-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.38);
+  opacity: 0;
+  transition: opacity 200ms ease;
+  pointer-events: none;
+  z-index: 40;
+}
+.drawer.open .drawer-overlay {
+  opacity: 1;
+  pointer-events: auto;
+  z-index: -1;
+}
+
+.drawer-panel {
+  z-index: 55; /* overlay is 40, handle is 60 — ensures panel is interactive */
+}</style>
+  </head>
+
+  <body>
+    <div class="text-center mb-2">
+      <h1
+        class="text-2xl font-black text-white tracking-tight italic underline decoration-sky-500"
+      >
+        REFLECTIE <span
+          class="text-sky-500"
+        >LAB</span>
+      </h1>
+    </div>
+
+    <canvas id="canvas"></canvas>
+<!-- New drawer wrapper & toggle -->
+<div id="drawer" class="drawer">
+  <button id="drawerToggle" class="drawer-toggle" aria-controls="drawerPanel" aria-expanded="false" aria-label="Open settings">
+    <!-- simple chevron icon -->
+    <span class="chev">&gt;</span>
+  </button>
+
+  <div id="drawerPanel" class="ui-container drawer-panel shadow-2xl">
+    <!-- ...existing panel content (no changes) ... -->
+    <!-- (copy the inner contents that were previously in .ui-container here) -->
+    <div class="ui-container shadow-2xl">
+      <div class="flex justify-between items-center mb-1 mt-3">
+        <span
+          class="text-[10px] font-bold uppercase tracking-wider text-slate-400"
+        >Gekozen Variant</span>
+        <div class="flex items-center gap-2">
+          <span
+            id="variantDisplay"
+            class="text-lg font-mono font-bold text-amber-400"
+          >1</span>
+          <span class="text-slate-500 text-xs">van</span>
+          <span
+            id="totalVariants"
+            class="text-lg font-mono font-bold text-slate-300"
+          >4</span>
+        </div>
+      </div>
+      <input type="range" id="variantSlider" min="0" max="3" value="0" step="1">
+
+      <div class="flex justify-between items-center mb-1">
+        <span
+          class="text-[10px] font-bold uppercase tracking-wider text-slate-400"
+        >Totaal Bounces</span>
+        <span id="bounceValue" class="text-lg font-mono font-bold text-sky-400"
+        >3</span>
+      </div>
+      <input type="range" id="bounceSlider" min="0" max="15" value="3" step="1">
+
+      <div class="grid grid-cols-3 gap-2 mb-4">
+        <div
+          class="bg-sky-500/10 border border-sky-500/30 rounded-lg p-2 text-center"
+        >
+          <span
+            class="text-[8px] font-bold uppercase tracking-widest text-sky-400 block"
+          >Padlengte</span>
+          <span
+            id="pathLengthLabel"
+            class="text-lg font-mono font-bold text-white"
+          >0.000</span>
+        </div>
+        <div
+          class="bg-slate-800/50 border border-slate-700 rounded-lg p-2 flex flex-col items-center justify-center"
+        >
+          <span
+            class="text-[8px] font-bold uppercase tracking-widest text-slate-400 mb-1"
+          >Raster</span>
+          <label class="switch">
+            <input type="checkbox" id="gridToggle">
+            <span class="slider-round"></span>
+          </label>
+        </div>
+        <div
+          class="bg-slate-800/50 border border-slate-700 rounded-lg p-2 flex flex-col items-center justify-center"
+        >
+          <span
+            class="text-[8px] font-bold uppercase tracking-widest text-amber-400 mb-1"
+          >Uitklappen</span>
+          <label class="switch">
+            <input type="checkbox" id="unfoldToggle">
+            <span class="slider-round"></span>
+          </label>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-3 mt-3">
+        <div class="bg-slate-800/50 p-2 rounded border border-slate-700">
+          <div id="distribution" class="font-mono text-[10px] text-sky-300">
+            H: 3R, V: 0O
+          </div>
+        </div>
+        <div
+          class="bg-slate-800/50 p-2 rounded border border-slate-700 text-right"
+        >
+          <div
+            id="virtualPosLabel"
+            class="font-mono text-[10px] text-slate-400"
+          >
+            x: 0, y: 0
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="drawerOverlay" class="drawer-overlay" aria-hidden="true"></div>
+</div>
+
+    <script>// src/unfold.ts
+var TABLE_WIDTH = 2;
+var TABLE_HEIGHT = 1;
+function getVirtualCoord(val, bounces, startDir) {
+  let tableOffset = startDir === 1 ? bounces : -bounces;
+  if (bounces % 2 === 0) {
+    return tableOffset + val;
+  } else {
+    if (startDir === 1) {
+      return tableOffset + 1 - val;
+    } else {
+      return tableOffset - 1 + val;
+    }
+  }
+}
+function mapToTable(val) {
+  let m = val % 2;
+  if (m < 0) m += 2;
+  return m > 1 ? 2 - m : m;
+}
+function generateVariants(px, py, totalBounces, precision = 4) {
+  const variants2 = [];
+  for (let nx = 0; nx <= totalBounces; nx++) {
+    for (let ny = 0; ny <= totalBounces - nx; ny++) {
+      const dirs = [
+        {
+          sx: 1,
+          sy: 1
+        },
+        {
+          sx: -1,
+          sy: 1
+        },
+        {
+          sx: 1,
+          sy: -1
+        },
+        {
+          sx: -1,
+          sy: -1
+        }
+      ];
+      dirs.forEach((d) => {
+        const tx = getVirtualCoord(px, nx, d.sx);
+        const ty = getVirtualCoord(py, ny, d.sy);
+        variants2.push({
+          nx,
+          ny,
+          tx,
+          ty,
+          sx: d.sx,
+          sy: d.sy,
+          totalBounces: nx + ny
+        });
+      });
+    }
+  }
+  const seen = /* @__PURE__ */ new Set();
+  const filtered = variants2.filter((v) => {
+    const key = `${v.tx.toFixed(precision)}_${v.ty.toFixed(precision)}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  filtered.sort((a, b) => (a.totalBounces || 0) - (b.totalBounces || 0));
+  return filtered;
+}
+
+// src/main.ts
+var drawer = document.getElementById("drawer");
+var drawerToggle = document.getElementById("drawerToggle");
+var drawerOverlay = document.getElementById("drawerOverlay");
+function setDrawerOpen(open) {
+  if (!drawer || !drawerToggle) return;
+  drawer.classList.toggle("open", open);
+  drawerToggle.setAttribute("aria-expanded", String(open));
+}
+if (drawer && drawerToggle && drawerOverlay) {
+  drawerToggle.addEventListener("click", () => {
+    setDrawerOpen(!drawer.classList.contains("open"));
+  });
+  drawerOverlay.addEventListener("click", () => setDrawerOpen(false));
+  addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && drawer.classList.contains("open")) {
+      setDrawerOpen(false);
+    }
+  });
+}
+var canvas = document.getElementById("canvas");
+var ctx = canvas.getContext("2d");
+var bounceSlider = document.getElementById("bounceSlider");
+var variantSlider = document.getElementById("variantSlider");
+var gridToggle = document.getElementById("gridToggle");
+var unfoldToggle = document.getElementById("unfoldToggle");
+var bounceDisplay = document.getElementById("bounceValue");
+var variantDisplay = document.getElementById("variantDisplay");
+var totalVariantsLabel = document.getElementById("totalVariants");
+var distributionLabel = document.getElementById("distribution");
+var virtualPosLabel = document.getElementById("virtualPosLabel");
+var pathLengthLabel = document.getElementById("pathLengthLabel");
+var ratio = 2;
+var width = 0;
+var height = 0;
+var p1 = {
+  x: 0.15,
+  y: 0.3,
+  color: "#fb7185"
+};
+var p2 = {
+  x: 0.85,
+  y: 0.7,
+  color: "#34d399"
+};
+var draggingPoint = null;
+var variants = [];
+function resize() {
+  const horizMargin = 40;
+  const vertMargin = 160;
+  const maxWidth = Math.max(0, window.innerWidth - horizMargin);
+  const maxHeight = Math.max(0, window.innerHeight - vertMargin);
+  width = Math.floor(Math.min(maxWidth, maxHeight * ratio));
+  height = Math.floor(width / ratio);
+  canvas.style.width = `${width}px`;
+  canvas.style.height = `${height}px`;
+  const dpr = Math.max(1, window.devicePixelRatio || 1);
+  canvas.width = Math.round(width * dpr);
+  canvas.height = Math.round(height * dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  updateVariants();
+  draw();
+}
+function getMousePos(e) {
+  const rect = canvas.getBoundingClientRect();
+  let cx, cy;
+  if (e.touches && e.touches.length > 0) {
+    cx = e.touches[0].clientX;
+    cy = e.touches[0].clientY;
+  } else {
+    cx = e.clientX;
+    cy = e.clientY;
+  }
+  return {
+    x: (cx - rect.left) / width,
+    y: (cy - rect.top) / height
+  };
+}
+function startDrag(e) {
+  if (unfoldToggle.checked) return;
+  const ev = e;
+  const pos = getMousePos(ev);
+  const d1 = Math.hypot(pos.x - p1.x, (pos.y - p1.y) * (1 / ratio));
+  const d2 = Math.hypot(pos.x - p2.x, (pos.y - p2.y) * (1 / ratio));
+  if (d1 < 0.08) draggingPoint = p1;
+  else if (d2 < 0.08) draggingPoint = p2;
+  if (draggingPoint && "cancelable" in ev && ev.cancelable) ev.preventDefault();
+}
+function moveDrag(e) {
+  if (!draggingPoint) return;
+  const ev = e;
+  const pos = getMousePos(ev);
+  draggingPoint.x = Math.max(5e-3, Math.min(0.995, pos.x));
+  draggingPoint.y = Math.max(5e-3, Math.min(0.995, pos.y));
+  updateVariants(false);
+  draw();
+  if ("cancelable" in ev && ev.cancelable) ev.preventDefault();
+}
+function endDrag() {
+  draggingPoint = null;
+}
+canvas.addEventListener("mousedown", startDrag);
+window.addEventListener("mousemove", moveDrag);
+window.addEventListener("mouseup", endDrag);
+canvas.addEventListener("touchstart", startDrag, {
+  passive: false
+});
+window.addEventListener("touchmove", moveDrag, {
+  passive: false
+});
+window.addEventListener("touchend", endDrag);
+gridToggle.onchange = () => draw();
+unfoldToggle.onchange = () => draw();
+function updateVariants(resetSlider = true) {
+  const totalBounces = parseInt(bounceSlider.value, 10);
+  const currentIdx = parseInt(variantSlider.value, 10);
+  variants = generateVariants(p2.x, p2.y, totalBounces, 4);
+  variantSlider.max = String(Math.max(0, variants.length - 1));
+  if (resetSlider || currentIdx >= variants.length) {
+    if (currentIdx >= variants.length) variantSlider.value = "0";
+  } else {
+    variantSlider.value = String(currentIdx);
+  }
+  totalVariantsLabel.innerText = String(variants.length);
+}
+bounceSlider.addEventListener("input", () => {
+  bounceDisplay.innerText = bounceSlider.value;
+  updateVariants(true);
+  draw();
+});
+variantSlider.addEventListener("input", () => draw());
+function drawUnfolded(v) {
+  const totalB = parseInt(bounceSlider.value, 10);
+  const gridCells = totalB + 1;
+  const scale = Math.min(width / (gridCells * 2 + 1), height / (gridCells * 2 + 1));
+  const centerX = width / 2;
+  const centerY = height / 2;
+  ctx.save();
+  ctx.translate(centerX, centerY);
+  for (let ix = -gridCells; ix <= gridCells; ix++) {
+    for (let iy = -gridCells; iy <= gridCells; iy++) {
+      const x = ix * scale * 2;
+      const y = iy * scale;
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.05)";
+      ctx.strokeRect(x, y, scale * 2, scale);
+      if (ix === 0 && iy === 0) {
+        ctx.fillStyle = "rgba(56, 189, 248, 0.1)";
+        ctx.fillRect(x, y, scale * 2, scale);
+        ctx.strokeStyle = "rgba(56, 189, 248, 0.3)";
+        ctx.strokeRect(x, y, scale * 2, scale);
+      }
+    }
+  }
+  const startX = p1.x * scale * 2;
+  const startY = p1.y * scale;
+  const targetX = v.tx * scale * 2;
+  const targetY = v.ty * scale;
+  ctx.beginPath();
+  ctx.moveTo(startX, startY);
+  ctx.lineTo(targetX, targetY);
+  ctx.strokeStyle = "#38bdf8";
+  ctx.setLineDash([
+    5,
+    5
+  ]);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  for (let ix = -gridCells; ix <= gridCells; ix++) {
+    for (let iy = -gridCells; iy <= gridCells; iy++) {
+      const mirrorX = ix + (ix % 2 === 0 ? p2.x : 1 - p2.x);
+      const mirrorY = iy + (iy % 2 === 0 ? p2.y : 1 - p2.y);
+      const ballX = mirrorX * scale * 2;
+      const ballY = mirrorY * scale;
+      ctx.fillStyle = ix === 0 && iy === 0 ? "#f59e0b" : "#3c2f0f";
+      ctx.beginPath();
+      ctx.arc(ballX, ballY, 3, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.8)";
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+  }
+  variants.forEach((variant) => {
+    const ballX = variant.tx * scale * 2;
+    const ballY = variant.ty * scale;
+    const isSelected = variant === v;
+    ctx.fillStyle = isSelected ? "#f59e0b" : "#fbbf24";
+    ctx.beginPath();
+    ctx.arc(ballX, ballY, isSelected ? 5 : 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = isSelected ? "#ffffff" : "rgba(255, 255, 255, 0.6)";
+    ctx.lineWidth = isSelected ? 2 : 1;
+    ctx.stroke();
+  });
+  ctx.fillStyle = p1.color || "#000";
+  ctx.beginPath();
+  ctx.arc(startX, startY, 6, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = "#ffffff";
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.fillStyle = p2.color || "#000";
+  ctx.beginPath();
+  ctx.arc(targetX, targetY, 6, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = "#ffffff";
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.restore();
+}
+function drawPath(start, v) {
+  const dx_phys = (v.tx - start.x) * TABLE_WIDTH;
+  const dy_phys = (v.ty - start.y) * TABLE_HEIGHT;
+  pathLengthLabel.innerText = Math.sqrt(dx_phys ** 2 + dy_phys ** 2).toFixed(3);
+  virtualPosLabel.innerText = `v-target: (${v.tx.toFixed(2)}, ${v.ty.toFixed(2)})`;
+  let hits = [];
+  const eps = 1e-9;
+  const xStep = v.tx > start.x ? 1 : -1;
+  const startX = xStep === 1 ? Math.ceil(start.x + eps) : Math.floor(start.x - eps);
+  for (let x = startX; xStep === 1 ? x < v.tx - eps : x > v.tx + eps; x += xStep) {
+    let t = (x - start.x) / (v.tx - start.x);
+    hits.push({
+      t,
+      x,
+      y: start.y + t * (v.ty - start.y)
+    });
+  }
+  const yStep = v.ty > start.y ? 1 : -1;
+  const startY = yStep === 1 ? Math.ceil(start.y + eps) : Math.floor(start.y - eps);
+  for (let y = startY; yStep === 1 ? y < v.ty - eps : y > v.ty + eps; y += yStep) {
+    let t = (y - start.y) / (v.ty - start.y);
+    hits.push({
+      t,
+      x: start.x + t * (v.tx - start.x),
+      y
+    });
+  }
+  hits.sort((a, b) => a.t - b.t);
+  let filteredHits = [];
+  for (let i = 0; i < hits.length; i++) {
+    if (i > 0 && Math.abs(hits[i].t - hits[i - 1].t) < eps) {
+      filteredHits[filteredHits.length - 1].x = Math.round(hits[i].x);
+      filteredHits[filteredHits.length - 1].y = Math.round(hits[i].y);
+      continue;
+    }
+    filteredHits.push(hits[i]);
+  }
+  ctx.save();
+  if (gridToggle.checked) {
+    ctx.strokeStyle = "rgba(56, 189, 248, 0.15)";
+    for (let i = 1; i < 8; i++) {
+      ctx.beginPath();
+      ctx.moveTo(i / 8 * width, 0);
+      ctx.lineTo(i / 8 * width, height);
+      ctx.stroke();
+    }
+    for (let i = 1; i < 4; i++) {
+      ctx.beginPath();
+      ctx.moveTo(0, i / 4 * height);
+      ctx.lineTo(width, i / 4 * height);
+      ctx.stroke();
+    }
+  }
+  ctx.beginPath();
+  ctx.moveTo(start.x * width, start.y * height);
+  filteredHits.forEach((pt) => ctx.lineTo(mapToTable(pt.x) * width, mapToTable(pt.y) * height));
+  ctx.lineTo(p2.x * width, p2.y * height);
+  ctx.strokeStyle = "#38bdf8";
+  ctx.lineWidth = 4;
+  ctx.lineJoin = "round";
+  ctx.stroke();
+  ctx.strokeStyle = "#e0f2fe";
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+  filteredHits.forEach((pt) => {
+    ctx.beginPath();
+    ctx.arc(mapToTable(pt.x) * width, mapToTable(pt.y) * height, 4, 0, Math.PI * 2);
+    ctx.fillStyle = "#fff";
+    ctx.fill();
+  });
+  ctx.restore();
+}
+function draw() {
+  ctx.clearRect(0, 0, width, height);
+  const idx = parseInt(variantSlider.value, 10);
+  const v = variants[idx];
+  if (!v) return;
+  console.log("Selected variant:", JSON.stringify(v));
+  if (unfoldToggle.checked) {
+    drawUnfolded(v);
+  } else {
+    drawPath(p1, v);
+    [
+      p1,
+      p2
+    ].forEach((p) => {
+      ctx.save();
+      ctx.shadowBlur = 15;
+      ctx.shadowColor = p.color;
+      ctx.beginPath();
+      ctx.arc(p.x * width, p.y * height, 14, 0, Math.PI * 2);
+      ctx.fillStyle = p.color;
+      ctx.fill();
+      ctx.strokeStyle = "#ffffff";
+      ctx.lineWidth = 3;
+      ctx.stroke();
+      ctx.restore();
+    });
+  }
+  variantDisplay.innerText = String(idx + 1);
+  const vnx = v.nx;
+  const vny = v.ny;
+  distributionLabel.innerText = `H: ${vnx}${v.sx > 0 ? "R" : "L"}, V: ${vny}${v.sy > 0 ? "O" : "B"}`;
+}
+resize();
+window.addEventListener("load", draw);
+window.addEventListener("resize", resize);
+</script>
+  </body>
+</html>
